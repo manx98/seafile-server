@@ -23,6 +23,7 @@
 #include "merge-new.h"
 #include "change-set.h"
 #include "seaf-utils.h"
+#include "filelock-mgr.h"
 
 #include "seaf-db.h"
 
@@ -1850,6 +1851,11 @@ seaf_repo_manager_del_file (SeafRepoManager *mgr,
 
     seaf_repo_manager_merge_virtual_repo (mgr, repo_id, NULL);
 
+    char *deleted_path = g_build_path ("/", canon_path, file_name, NULL);
+    seaf_filelock_manager_delete_path (seaf->filelock_mgr, repo_id,
+                                       deleted_path);
+    g_free (deleted_path);
+
 out:
     if (repo)
         seaf_repo_unref (repo);
@@ -1978,6 +1984,14 @@ seaf_repo_manager_batch_del_files (SeafRepoManager *mgr,
     }
 
     seaf_repo_manager_merge_virtual_repo (mgr, repo_id, NULL);
+
+    GList *deleted_paths = json_to_file_list (file_list), *dp;
+    for (dp = deleted_paths; dp; dp = dp->next) {
+        char *path = get_canonical_path (dp->data);
+        seaf_filelock_manager_delete_path (seaf->filelock_mgr, repo_id, path);
+        g_free (path);
+    }
+    string_list_free (deleted_paths);
 
 out:
     changeset_free (changeset);
@@ -3221,6 +3235,19 @@ move_file_same_repo (const char *repo_id,
     if (gen_new_commit (repo_id, head_commit, root_id,
                         user, buf, NULL, TRUE, TRUE, gc_id, error) < 0)
         ret = -1;
+    else {
+        GList *src_names = json_to_file_list (src_filenames), *ptr;
+        for (ptr = src_names, i = 0; ptr && i < file_num; ptr = ptr->next, i++) {
+            char *old_path = g_build_path ("/", src_path, ptr->data, NULL);
+            char *new_path = g_build_path ("/", dst_path,
+                                           dst_dents[i]->name, NULL);
+            seaf_filelock_manager_move_path (seaf->filelock_mgr, repo_id,
+                                             old_path, new_path);
+            g_free (old_path);
+            g_free (new_path);
+        }
+        string_list_free (src_names);
+    }
     
 out:
     if (repo)
@@ -4212,6 +4239,13 @@ seaf_repo_manager_rename_file (SeafRepoManager *mgr,
     }
 
     seaf_repo_manager_merge_virtual_repo (mgr, repo_id, NULL);
+
+    char *old_path = g_build_path ("/", canon_path, oldname, NULL);
+    char *new_path = g_build_path ("/", canon_path, newname, NULL);
+    seaf_filelock_manager_move_path (seaf->filelock_mgr, repo_id,
+                                     old_path, new_path);
+    g_free (old_path);
+    g_free (new_path);
 
 out:
     if (repo)
@@ -6958,4 +6992,3 @@ seaf_repo_diff (SeafRepo *repo, const char *old, const char *new, int fold_dir_r
 
     return diff_entries;
 }
-

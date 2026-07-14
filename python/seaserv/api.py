@@ -413,11 +413,26 @@ class SeafileAPI(object):
         return seafserv_threaded_rpc.get_upload_tmp_file_offset (repo_id, file_path)
 
     # file lock
+    def get_locked_files(self, repo_id):
+        return seafserv_threaded_rpc.get_locked_files(repo_id)
+
+    def lock_file(self, repo_id, path, user, expire):
+        return seafserv_threaded_rpc.lock_file(repo_id, path, user, expire)
+
+    def unlock_file(self, repo_id, path):
+        return seafserv_threaded_rpc.unlock_file(repo_id, path)
+
+    FILE_LOCKED_BY_OTHERS = 1
+    FILE_LOCKED_BY_ME = 2
+
     def check_file_lock(self, repo_id, path, user):
-        """
-        Always return 0 since CE doesn't support file locking.
-        """
-        return 0
+        return seafserv_threaded_rpc.check_file_lock(repo_id, path, user)
+
+    def refresh_file_lock(self, repo_id, path, expire=0):
+        return seafserv_threaded_rpc.refresh_file_lock(repo_id, path, expire)
+
+    def get_lock_info(self, repo_id, path):
+        return seafserv_threaded_rpc.get_lock_info(repo_id, path)
 
     # share repo to user
     def share_repo(self, repo_id, from_username, to_username, permission):

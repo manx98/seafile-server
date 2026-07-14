@@ -7,6 +7,7 @@
 
 #include "seafile-session.h"
 #include "repo-mgr.h"
+#include "filelock-mgr.h"
 
 #include "seafile-error.h"
 #include "seaf-utils.h"
@@ -283,6 +284,8 @@ seaf_repo_manager_list_dir_with_perm (SeafRepoManager *mgr,
     SeafileDirent *d;
     GList *res = NULL;
     GList *p;
+    GList *locks = NULL, *lp;
+    GHashTable *lock_hash = NULL;
 
     perm = seaf_repo_manager_check_permission (mgr, repo_id, user, error);
     if (!perm) {
@@ -328,6 +331,15 @@ seaf_repo_manager_list_dir_with_perm (SeafRepoManager *mgr,
         g_free (repo_owner);
     }
 
+    locks = seaf_filelock_manager_get_locked_files (seaf->filelock_mgr,
+                                                    repo_id, NULL);
+    lock_hash = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
+    for (lp = locks; lp; lp = lp->next) {
+        char *path = NULL;
+        g_object_get (lp->data, "path", &path, NULL);
+        g_hash_table_insert (lock_hash, path, lp->data);
+    }
+
     for (p = dir->entries; p != NULL; p = p->next, index++) {
         if (index < offset) {
             continue;
@@ -354,6 +366,23 @@ seaf_repo_manager_list_dir_with_perm (SeafRepoManager *mgr,
                           "modifier", dent->modifier,
                           NULL);
 
+        if (S_ISREG (dent->mode)) {
+            GObject *lock;
+            char *path = g_build_path ("/", dir_path, dent->name, NULL);
+            lock = g_hash_table_lookup (lock_hash, path);
+            if (lock) {
+                char *owner = NULL;
+                gint64 lock_time = 0;
+                g_object_get (lock, "user", &owner,
+                              "lock-time", &lock_time, NULL);
+                g_object_set (d, "is-locked", TRUE,
+                              "lock-owner", owner,
+                              "lock-time", lock_time, NULL);
+                g_free (owner);
+            }
+            g_free (path);
+        }
+
         if (shared_sub_dirs && S_ISDIR(dent->mode)) {
             if (strcmp (dir_path, "/") == 0) {
                 cur_path = g_strconcat (dir_path, dent->name, NULL);
@@ -369,6 +398,8 @@ seaf_repo_manager_list_dir_with_perm (SeafRepoManager *mgr,
 
     if (shared_sub_dirs)
         g_hash_table_destroy (shared_sub_dirs);
+    g_hash_table_destroy (lock_hash);
+    g_list_free_full (locks, g_object_unref);
     seaf_dir_free (dir);
     seaf_repo_unref (repo);
     g_free (perm);

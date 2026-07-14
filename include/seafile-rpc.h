@@ -231,6 +231,17 @@ seafile_mark_file_locked (const char *repo_id, const char *path, GError **error)
 int
 seafile_mark_file_unlocked (const char *repo_id, const char *path, GError **error);
 
+GList *seafile_get_locked_files (const char *repo_id, GError **error);
+int seafile_lock_file (const char *repo_id, const char *path, const char *user,
+                       gint64 expire, GError **error);
+int seafile_unlock_file (const char *repo_id, const char *path, GError **error);
+int seafile_check_file_lock (const char *repo_id, const char *path,
+                             const char *user, GError **error);
+int seafile_refresh_file_lock (const char *repo_id, const char *path,
+                               gint64 expire, GError **error);
+GObject *seafile_get_lock_info (const char *repo_id, const char *path,
+                                GError **error);
+
 char *
 seafile_get_server_property (const char *server_url, const char *key, GError **error);
 

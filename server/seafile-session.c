@@ -264,6 +264,9 @@ seafile_session_new(const char *central_config_dir,
     session->repo_mgr = seaf_repo_manager_new (session);
     if (!session->repo_mgr)
         goto onerror;
+    session->filelock_mgr = seaf_filelock_manager_new (session);
+    if (!session->filelock_mgr)
+        goto onerror;
     session->branch_mgr = seaf_branch_manager_new (session);
     if (!session->branch_mgr)
         goto onerror;
@@ -452,6 +455,11 @@ seafile_session_init (SeafileSession *session)
         return -1;
     }
 
+    if (seaf_filelock_manager_init (session->filelock_mgr) < 0) {
+        seaf_error ("Failed to init file lock manager.\n");
+        return -1;
+    }
+
     if (seaf_quota_manager_init (session->quota_mgr) < 0) {
         seaf_error ("Failed to init quota manager.\n");
         return -1;
@@ -484,6 +492,11 @@ seafile_session_init (SeafileSession *session)
 int
 seafile_session_start (SeafileSession *session)
 {
+    if (seaf_filelock_manager_start (session->filelock_mgr) < 0) {
+        seaf_warning ("Failed to start file lock manager.\n");
+        return -1;
+    }
+
     if (seaf_share_manager_start (session->share_mgr) < 0) {
         seaf_warning ("Failed to start share manager.\n");
         return -1;

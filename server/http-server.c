@@ -1294,6 +1294,62 @@ include_invalid_path (SeafCommit *base_commit, SeafCommit *new_commit) {
     return ret;
 }
 
+static int
+check_locked_files (const char *repo_id, SeafCommit *base,
+                    SeafCommit *new_commit, const char *user,
+                    GList **diff_entries)
+{
+    GList *ptr;
+
+    if (diff_commits (base, new_commit, diff_entries, TRUE) < 0)
+        return -1;
+
+    for (ptr = *diff_entries; ptr; ptr = ptr->next) {
+        DiffEntry *de = ptr->data;
+        char *path, *owner;
+
+        if (de->status != DIFF_STATUS_MODIFIED)
+            continue;
+        path = g_build_path ("/", de->name, NULL);
+        owner = seaf_filelock_manager_get_lock_owner (seaf->filelock_mgr,
+                                                      repo_id, path);
+        g_free (path);
+        if (owner && g_strcmp0 (owner, user) != 0) {
+            g_free (owner);
+            return 1;
+        }
+        g_free (owner);
+    }
+    return 0;
+}
+
+static void
+update_locks_after_commit (const char *repo_id, GList *diff_entries)
+{
+    GList *ptr;
+
+    for (ptr = diff_entries; ptr; ptr = ptr->next) {
+        DiffEntry *de = ptr->data;
+        char *path;
+
+        if (de->status == DIFF_STATUS_DELETED ||
+            de->status == DIFF_STATUS_DIR_DELETED) {
+            path = g_build_path ("/", de->name, NULL);
+            seaf_filelock_manager_delete_path (seaf->filelock_mgr,
+                                               repo_id, path);
+            g_free (path);
+        } else if (de->status == DIFF_STATUS_RENAMED ||
+                   de->status == DIFF_STATUS_DIR_RENAMED) {
+            char *old_path = g_build_path ("/", de->name, NULL);
+            char *new_path = g_build_path ("/", de->new_name, NULL);
+            seaf_filelock_manager_move_path (seaf->filelock_mgr, repo_id,
+                                             old_path, new_path);
+            g_free (old_path);
+            g_free (new_path);
+        }
+    }
+}
+
 static void
 put_update_branch_cb (evhtp_request_t *req, void *arg)
 {
@@ -1304,6 +1360,7 @@ put_update_branch_cb (evhtp_request_t *req, void *arg)
     SeafRepo *repo = NULL;
     SeafCommit *new_commit = NULL, *base = NULL;
     char *token = NULL;
+    GList *diff_entries = NULL;
 
     const char *new_commit_id = evhtp_kv_find (req->uri->query, "head");
     if (new_commit_id == NULL || !is_object_id_valid (new_commit_id)) {
@@ -1356,6 +1413,19 @@ put_update_branch_cb (evhtp_request_t *req, void *arg)
         goto out;
     }
 
+    int lock_status = check_locked_files (repo_id, base, new_commit,
+                                          username, &diff_entries);
+    if (lock_status != 0) {
+        if (lock_status > 0) {
+            char *msg = "File locked by others.\n";
+            evbuffer_add (req->buffer_out, msg, strlen (msg));
+            evhtp_send_reply (req, EVHTP_RES_FORBIDDEN);
+        } else {
+            evhtp_send_reply (req, EVHTP_RES_SERVERR);
+        }
+        goto out;
+    }
+
     if (seaf_quota_manager_check_quota (seaf->quota_mgr, repo_id) < 0) {
         evhtp_send_reply (req, SEAF_HTTP_RES_NOQUOTA);
         goto out;
@@ -1391,6 +1461,8 @@ put_update_branch_cb (evhtp_request_t *req, void *arg)
 
     seaf_repo_manager_merge_virtual_repo (seaf->repo_mgr, repo_id, NULL);
 
+    update_locks_after_commit (repo_id, diff_entries);
+
     schedule_repo_size_computation (seaf->size_sched, repo_id);
 
     evhtp_send_reply (req, EVHTP_RES_OK);
@@ -1400,6 +1472,7 @@ out:
     seaf_repo_unref (repo);
     seaf_commit_unref (new_commit);
     seaf_commit_unref (base);
+    g_list_free_full (diff_entries, (GDestroyNotify)diff_entry_free);
     g_free (username);
     g_strfreev (parts);
 }

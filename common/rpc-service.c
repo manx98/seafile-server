@@ -35,6 +35,103 @@
 
 
 /* -------- Utilities -------- */
+
+GList *
+seafile_get_locked_files (const char *repo_id, GError **error)
+{
+    if (!repo_id || !is_repo_id_valid (repo_id)) {
+        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS, "Invalid repo id");
+        return NULL;
+    }
+    return seaf_filelock_manager_get_locked_files (seaf->filelock_mgr, repo_id, error);
+}
+
+int
+seafile_lock_file (const char *repo_id, const char *path, const char *user,
+                   gint64 expire, GError **error)
+{
+    char *norm_path;
+    int ret;
+    if (!repo_id || !is_repo_id_valid (repo_id) || !path) {
+        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS, "Invalid repo id");
+        return -1;
+    }
+    if (!user) {
+        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS, "Invalid user");
+        return -1;
+    }
+    norm_path = normalize_utf8_path (path);
+    ret = seaf_filelock_manager_lock_file (seaf->filelock_mgr, repo_id,
+                                           norm_path, user, expire, error);
+    g_free (norm_path);
+    return ret;
+}
+
+int
+seafile_unlock_file (const char *repo_id, const char *path, GError **error)
+{
+    char *norm_path;
+    int ret;
+    if (!repo_id || !is_repo_id_valid (repo_id) || !path) {
+        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS, "Invalid repo id");
+        return -1;
+    }
+    norm_path = normalize_utf8_path (path);
+    ret = seaf_filelock_manager_unlock_file (seaf->filelock_mgr, repo_id,
+                                             norm_path, error);
+    g_free (norm_path);
+    return ret;
+}
+
+int
+seafile_check_file_lock (const char *repo_id, const char *path,
+                         const char *user, GError **error)
+{
+    char *norm_path;
+    int ret;
+    if (!repo_id || !is_repo_id_valid (repo_id) || !path || !user) {
+        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS, "Invalid arguments");
+        return -1;
+    }
+    norm_path = normalize_utf8_path (path);
+    ret = seaf_filelock_manager_check_file_lock (seaf->filelock_mgr, repo_id,
+                                                 norm_path, user);
+    g_free (norm_path);
+    return ret;
+}
+
+int
+seafile_refresh_file_lock (const char *repo_id, const char *path,
+                           gint64 expire, GError **error)
+{
+    char *norm_path;
+    int ret;
+    if (!repo_id || !is_repo_id_valid (repo_id) || !path) {
+        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS, "Invalid arguments");
+        return -1;
+    }
+    norm_path = normalize_utf8_path (path);
+    ret = seaf_filelock_manager_refresh_file_lock (seaf->filelock_mgr, repo_id,
+                                                   norm_path, expire, error);
+    g_free (norm_path);
+    return ret;
+}
+
+GObject *
+seafile_get_lock_info (const char *repo_id, const char *path, GError **error)
+{
+    char *norm_path;
+    GObject *ret;
+    if (!repo_id || !is_repo_id_valid (repo_id) || !path) {
+        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS, "Invalid arguments");
+        return NULL;
+    }
+    norm_path = normalize_utf8_path (path);
+    ret = seaf_filelock_manager_get_lock_info (seaf->filelock_mgr, repo_id, norm_path);
+    g_free (norm_path);
+    return ret;
+}
+
 static GObject*
 convert_repo (SeafRepo *r)
 {

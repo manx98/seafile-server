@@ -27,6 +27,7 @@
 #include "upload-file.h"
 #include "http-status-codes.h"
 #include "http-server.h"
+#include "filelock-mgr.h"
 
 #include "seafile-error.h"
 
@@ -94,6 +95,8 @@ static pthread_mutex_t pg_lock;
 static int
 write_block_data_to_tmp_file (RecvFSM *fsm, const char *parent_dir,
                               const char *file_name);
+static void
+send_error_reply (evhtp_request_t *req, evhtp_res code, char *error);
 
 /* IE8 will set filename to the full path of the uploaded file.
  * So we need to strip out the basename from it.
@@ -113,6 +116,19 @@ get_basename (const char *path)
         return g_strdup(path);
 
     return g_strdup(&path[i+1]);
+}
+
+static gboolean
+check_file_lock (evhtp_request_t *req, RecvFSM *fsm, const char *path)
+{
+    char *owner = seaf_filelock_manager_get_lock_owner (seaf->filelock_mgr,
+                                                        fsm->repo_id, path);
+    gboolean allowed = !owner || g_strcmp0 (owner, fsm->user) == 0;
+
+    g_free (owner);
+    if (!allowed)
+        send_error_reply (req, EVHTP_RES_FORBIDDEN, "File locked by others.\n");
+    return allowed;
 }
 
 /* It's a bug of libevhtp that it doesn't set Content-Length automatically
@@ -1333,6 +1349,8 @@ update_api_cb(evhtp_request_t *req, void *arg)
         send_error_reply (req, EVHTP_RES_BADREQ, "Invalid targe_file.\n");
         goto out;
     }
+    if (!check_file_lock (req, fsm, target_file))
+        goto out;
 
     if (fsm->rstart >= 0) {
         if (fsm->filenames->next) {
@@ -1469,6 +1487,9 @@ update_blks_api_cb(evhtp_request_t *req, void *arg)
 
     parent_dir = g_path_get_dirname (target_file);
     filename = g_path_get_basename (target_file);
+
+    if (!check_file_lock (req, fsm, target_file))
+        goto out;
 
     if (!check_parent_dir (req, fsm->repo_id, parent_dir))
         goto out;
@@ -1750,6 +1771,9 @@ update_ajax_cb(evhtp_request_t *req, void *arg)
 
     parent_dir = g_path_get_dirname (target_file);
     filename = g_path_get_basename (target_file);
+
+    if (!check_file_lock (req, fsm, target_file))
+        goto out;
 
     if (!check_parent_dir (req, fsm->repo_id, parent_dir))
         goto out;

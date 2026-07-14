@@ -239,6 +239,35 @@ class SeafServerThreadedRpcClient(NamedPipeClient):
     def get_deleted(repo_id, show_days, path, scan_stat, limit):
         pass
 
+    # file lock
+    @searpc_func("objlist", ["string"])
+    def seafile_get_locked_files(repo_id):
+        pass
+    get_locked_files = seafile_get_locked_files
+
+    @searpc_func("int", ["string", "string", "string", "int64"])
+    def seafile_lock_file(repo_id, path, user, expire):
+        pass
+    lock_file = seafile_lock_file
+
+    @searpc_func("int", ["string", "string"])
+    def seafile_unlock_file(repo_id, path):
+        pass
+    unlock_file = seafile_unlock_file
+
+    @searpc_func("int", ["string", "string", "string"])
+    def seafile_check_file_lock(repo_id, path, user):
+        pass
+    check_file_lock = seafile_check_file_lock
+
+    @searpc_func("int", ["string", "string", "int64"])
+    def refresh_file_lock(repo_id, path, expire):
+        pass
+
+    @searpc_func("object", ["string", "string"])
+    def get_lock_info(repo_id, path):
+        pass
+
     # share repo to user
     @searpc_func("string", ["string", "string", "string", "string"])
     def seafile_add_share(repo_id, from_email, to_email, permission):

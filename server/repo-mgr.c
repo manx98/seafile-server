@@ -518,6 +518,8 @@ remove_virtual_repo_ondisk (SeafRepoManager *mgr,
                              "DELETE FROM RepoSize WHERE repo_id = ?",
                              1, "string", repo_id);
 
+    seaf_filelock_manager_delete_repo_locks (mgr->seaf->filelock_mgr, repo_id);
+
     seaf_db_statement_query (mgr->seaf->db,
                              "DELETE FROM RepoInfo WHERE repo_id = ?",
                              1, "string", repo_id);
@@ -641,6 +643,8 @@ del_repo:
     seaf_db_statement_query (mgr->seaf->db,
                              "DELETE FROM RepoSize WHERE repo_id = ?",
                              1, "string", repo_id);
+
+    seaf_filelock_manager_delete_repo_locks (mgr->seaf->filelock_mgr, repo_id);
 
     /* Remove virtual repos when origin repo is deleted. */
     GList *vrepos, *ptr;

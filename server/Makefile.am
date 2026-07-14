@@ -39,7 +39,8 @@ noinst_HEADERS = web-accesstoken-mgr.h  seafile-session.h \
 	http-tx-mgr.h \
 	notif-mgr.h \
 	change-set.h \
-	metric-mgr.h
+	metric-mgr.h \
+	filelock-mgr.h
 
 seaf_server_SOURCES = \
 	seaf-server.c \
@@ -63,6 +64,7 @@ seaf_server_SOURCES = \
 	notif-mgr.c \
 	change-set.c \
 	metric-mgr.c \
+	filelock-mgr.c \
 	../common/seaf-db.c \
 	../common/branch-mgr.c ../common/fs-mgr.c \
 	../common/config-mgr.c \

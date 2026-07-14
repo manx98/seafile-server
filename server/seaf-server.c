@@ -569,6 +569,20 @@ static void start_rpc_service (const char *seafile_dir,
                                      "seafile_get_upload_tmp_file_offset",
                                      searpc_signature_int64__string_string());
 
+    /* file lock */
+    searpc_server_register_function ("seafserv-threaded-rpcserver", seafile_get_locked_files,
+                                     "seafile_get_locked_files", searpc_signature_objlist__string());
+    searpc_server_register_function ("seafserv-threaded-rpcserver", seafile_lock_file,
+                                     "seafile_lock_file", searpc_signature_int__string_string_string_int64());
+    searpc_server_register_function ("seafserv-threaded-rpcserver", seafile_unlock_file,
+                                     "seafile_unlock_file", searpc_signature_int__string_string());
+    searpc_server_register_function ("seafserv-threaded-rpcserver", seafile_check_file_lock,
+                                     "seafile_check_file_lock", searpc_signature_int__string_string_string());
+    searpc_server_register_function ("seafserv-threaded-rpcserver", seafile_refresh_file_lock,
+                                     "refresh_file_lock", searpc_signature_int__string_string_int64());
+    searpc_server_register_function ("seafserv-threaded-rpcserver", seafile_get_lock_info,
+                                     "get_lock_info", searpc_signature_object__string_string());
+
     /* Clean trash */
 
     searpc_server_register_function ("seafserv-threaded-rpcserver",

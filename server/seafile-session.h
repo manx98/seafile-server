@@ -24,6 +24,7 @@
 #include "size-sched.h"
 #include "copy-mgr.h"
 #include "config-mgr.h"
+#include "filelock-mgr.h"
 
 #include "http-server.h"
 #include "zip-download-mgr.h"
@@ -63,6 +64,7 @@ struct _SeafileSession {
     SeafQuotaManager    *quota_mgr;
     SeafCopyManager     *copy_mgr;
     SeafCfgManager      *cfg_mgr;
+    SeafFilelockManager *filelock_mgr;
     CcnetUserManager    *user_mgr;
     CcnetGroupManager   *group_mgr;
     CcnetOrgManager     *org_mgr;

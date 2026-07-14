@@ -10,6 +10,16 @@ Build and Run
 
 See <https://manual.seafile.com/build_seafile/server/>
 
+The C components can also be built with CMake:
+
+    cmake -S . -B build
+    cmake --build build
+    cmake --install build
+
+Use `-DSEAFILE_BUILD_FUSE=OFF` when FUSE 2 development files are unavailable.
+The standalone `fileserver` and `notification-server` directories remain Go
+module projects and are built with `go build` in their respective directories.
+
 Contributing
 ===========
 
